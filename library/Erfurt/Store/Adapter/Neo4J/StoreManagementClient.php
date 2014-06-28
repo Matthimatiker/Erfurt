@@ -12,6 +12,12 @@ class Erfurt_Store_Adapter_Neo4J_StoreManagementClient
 {
 
     /**
+     * Number of relations or nodes that is deleted at once
+     * when the database is cleared.
+     */
+    const CLEAR_LIMIT = 50000;
+
+    /**
      * The REST client that is used to communicate with Neo4j.
      *
      * @var \Erfurt_Store_Adapter_Neo4J_ApiClient
@@ -96,8 +102,21 @@ class Erfurt_Store_Adapter_Neo4J_StoreManagementClient
      */
     public function clear()
     {
-        $deleteNodesAndPredicates = 'START n=node(*) MATCH (n)-[r?]-() WHERE HAS(n.term) DELETE r, n';
-        $this->executeCypherQuery($deleteNodesAndPredicates);
+        $deleteRelations = sprintf(
+            'START r=relationship(*) WITH r LIMIT %s DELETE r RETURN COUNT(r) AS affected',
+            self::CLEAR_LIMIT
+        );
+        do {
+            $result = $this->executeCypherQuery($deleteRelations);
+        } while ($result[0]['affected'] === self::CLEAR_LIMIT);
+
+        $deleteNodes = sprintf(
+            'START n=node(*) WITH n LIMIT %s DELETE n RETURN COUNT(n) AS affected',
+            self::CLEAR_LIMIT
+        );
+        do {
+            $result = $this->executeCypherQuery($deleteNodes);
+        } while ($result[0]['affected'] === self::CLEAR_LIMIT);
     }
 
     /**
